@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./js/vendor/three.module.js","three/addons/":"./js/vendor/addons/","three-vrm":"./js/vendor/three-vrm.module.js"}}</script>
+<style>html,body{margin:0;height:100%;background:#20232a}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from 'three-vrm';
+const r=new THREE.WebGLRenderer({antialias:true});
+r.setSize(760,700); r.toneMapping=THREE.ACESFilmicToneMapping; r.toneMappingExposure=1.0;
+r.outputColorSpace=THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+const s=new THREE.Scene(); s.background=new THREE.Color(0x20232a);
+const cam=new THREE.PerspectiveCamera(30,760/700,0.05,50);
+const key=new THREE.DirectionalLight(0xffffff,2.2); key.position.set(-1.4,2.6,2.2); s.add(key);
+s.add(new THREE.HemisphereLight(0xffffff,0x333333,1.0));
+const loader=new GLTFLoader();
+loader.register((p)=>new VRMLoaderPlugin(p));
+loader.load('./assets/maigo.vrm', (g)=>{
+  const vrm=g.userData.vrm;
+  if (VRMUtils.rotateVRM0) VRMUtils.rotateVRM0(vrm);
+  s.add(vrm.scene);
+  const h=vrm.humanoid;
+  const L=h.getNormalizedBoneNode('leftUpperArm');
+  const R=h.getNormalizedBoneNode('rightUpperArm');
+  const params=new URLSearchParams(location.search);
+  const z=parseFloat(params.get('z')||'-1.28');
+  L.rotation.z=-z; R.rotation.z=z;
+  window.__probe={z, leftHandY:null, rightHandY:null};
+  const lh=h.getNormalizedBoneNode('leftHand'), rh=h.getNormalizedBoneNode('rightHand');
+  vrm.scene.updateMatrixWorld(true);
+  const a=new THREE.Vector3(), b=new THREE.Vector3();
+  lh.getWorldPosition(a); rh.getWorldPosition(b);
+  window.__probe.leftHandY=+a.y.toFixed(3); window.__probe.rightHandY=+b.y.toFixed(3);
+  cam.position.set(0,1.0,3.2); cam.lookAt(0,0.85,0);
+  window.__ready=true;
+  vrm.update(0);
+  (function loop(){requestAnimationFrame(loop); vrm.update(0.016); r.render(s,cam);})();
+}, undefined, (e)=>{ window.__err=String(e); });
+</script></body></html>

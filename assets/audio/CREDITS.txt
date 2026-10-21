@@ -1,0 +1,11 @@
+Audio in this folder is vendored from "piano_tune and screaming"
+https://archive.org/details/piano_tune
+released under CC0 1.0 Universal (public domain dedication).
+No attribution is required; it is recorded here for provenance only.
+
+  piano_intro.mp3  — the piano tune, looped under the black intro card.
+                     Trimmed copy of piano_tune.mp3: high-passed at 32 Hz,
+                     normalised to -20 LUFS, 96 kbps stereo.
+  scream_slam.mp3  — the scream, used as the voice of the jumpscare.
+                     First scream of screaming.mp3 (0.28–2.52 s), pitched
+                     down ~7%, compressed and faded, 128 kbps stereo.

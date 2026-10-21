@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#05060a" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23090a10'/%3E%3Cpath d='M32 8 56 32 32 56 8 32Z' fill='none' stroke='%23c31f31' stroke-width='2'/%3E%3Cpath d='M23 24h18M27 24v18M32 24v14M37 24v18' stroke='%23e9e5da' stroke-width='2.4'/%3E%3C/svg%3E" />
+  <title>迷子ちゃん — MAIGO-CHAN</title>
+<meta name="description" content="Maigo-chan — a first-person Japanese alley horror prototype." />
+<link rel="stylesheet" href="./styles.css?v=b18" />
+<script>
+/* ---------------------------------------------------------------------------
+   BOOT WATCHDOG (classic script — runs even if the module fails to load)
+   The title screen is static HTML, so a failure inside the ES module looks
+   exactly like a slow load. This makes the failure loud and self-explaining.
+   --------------------------------------------------------------------------- */
+(function () {
+  window.__maigoReady = false;
+  window.__bootError = window.__bootError || null;
+
+  window.__maigoFail = function (msg, hint) {
+    window.__bootError = String(msg || 'unknown error');
+    var el = document.getElementById('load-status');
+    var btn = document.getElementById('enter-btn');
+    if (el) {
+      el.innerHTML = '⚠ ' + window.__bootError +
+        '<br><span style="opacity:.6;font-size:9px;letter-spacing:.14em">' +
+        (hint || '') + '</span>';
+      el.style.color = '#ff8a8a';
+      el.style.letterSpacing = '.1em';
+    } else {
+      // the title screen is already gone — float the message instead
+      var bar = document.getElementById('__errbar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = '__errbar';
+        bar.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);' +
+          'z-index:999;max-width:86vw;padding:9px 16px;border:1px solid rgba(255,90,90,.45);' +
+          'background:rgba(20,6,8,.92);color:#ffb3b3;font:11px/1.5 ui-monospace,monospace;' +
+          'letter-spacing:.06em;text-align:center;border-radius:2px';
+        document.body.appendChild(bar);
+      }
+      bar.textContent = '⚠ ' + window.__bootError;
+    }
+    if (btn) { btn.disabled = false; btn.style.opacity = '.6'; }
+    if (location.protocol === 'file:') {
+      if (el) el.innerHTML = '⚠ ES MODULES CANNOT RUN FROM file://' +
+        '<br><span style="opacity:.6">run ./serve.sh and open http://localhost:8080/</span>';
+    }
+  };
+
+
+  // A module that fetches but fails to evaluate is invisible from the outside:
+  // name the file instead of waiting 45 s to say "did not load".
+  window.addEventListener('error', function (e) {
+    if (window.__maigoReady) return;
+    var t = e && e.target;
+    // only scripts and stylesheets are fatal; a missing texture or voice file
+    // must not paint an error over a game that is booting fine
+    if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+      var src = t.src || t.href || 'module';
+      window.__bootError = 'could not load ' + src.split('/').pop();
+      window.__maigoFail(window.__bootError, 'run ./serve.sh and open the served URL');
+      return;
+    }
+    // runtime errors are recorded, not painted — the watchdog will show them
+    if (!window.__bootError) window.__bootError = (e && e.message) || 'script error';
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    if (window.__maigoReady) return;
+    window.__bootError = (e.reason && (e.reason.message || e.reason)) || 'unhandled rejection';
+    window.__maigoFail(String(window.__bootError), 'a module failed to import');
+  });
+
+  if (location.protocol === 'file:') {
+    window.addEventListener('DOMContentLoaded', function () {
+      window.__maigoFail('ES modules cannot run from file://');
+    });
+  }
+
+  // Two different situations, two different answers:
+  //   the module is alive but slow  → reassure, never alarm
+  //   the module never ran at all   → say so, because nothing else will
+  setTimeout(function () {
+    if (window.__maigoReady) return;
+    var el = document.getElementById('load-status');
+    if (el && el.textContent.indexOf('GENERATING') === 0) {
+      el.textContent = 'STILL BUILDING THE ALLEY…';
+    }
+  }, 11000);
+
+  setTimeout(function () {
+    if (window.__maigoReady) return;
+    if (typeof window.__dev !== 'undefined') {
+      var el = document.getElementById('load-status');
+      if (el) el.textContent = 'STILL BUILDING THE ALLEY… (slow machine)';
+      return;
+    }
+    // 40s: generous enough for a slow link, short enough that nobody stares
+    // at a dead title screen wondering whether it is broken
+    window.__maigoFail(window.__bootError || 'the game module did not load',
+                       'nothing executed — hard refresh with ctrl-shift-R');
+  }, 40000);
+})();
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./js/vendor/three.module.js?v=b18",
+    "three/addons/": "./js/vendor/addons/",
+    "three-vrm": "./js/vendor/three-vrm.module.js?v=b18"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== 3D VIEWPORT ===================== -->
+  <canvas id="scene"></canvas>
+
+  <!-- ===================== DIEGETIC HUD ===================== -->
+  <div id="ui">
+
+    <div id="letterbox" aria-hidden="true"><i class="top"></i><i class="bottom"></i></div>
+
+    <div id="hud" class="hidden">
+      <div id="crosshair"><span class="dot"></span><span class="ring"></span></div>
+
+      <div id="hud-top-left">
+        <div id="chapter" class="mono">CH.01 — 夜の路地 / THE ALLEY</div>
+        <div id="objective"><span class="jp">家まで帰る。</span><span class="en">Get home.</span></div>
+      </div>
+
+      <div id="hud-top-right">
+        <div id="class-chip"><span class="lbl">IDENTITY</span><span class="val">—</span></div>
+        <div id="torch-chip" class="on"><span class="led"></span><span class="txt">TORCH ON</span><span class="key">F</span></div>
+        <div id="candy-chip" class="hidden"><span class="lbl">CANDY</span><span class="val">0/3</span></div>
+        <div id="blanket-chip" class="hidden"><span class="lbl">BLANKET</span><span class="val">0/3</span></div>
+        <div id="path-tag" class="hidden">BLANKET</div>
+      </div>
+
+      <div id="alert-back" class="hidden">
+        <span class="jp">光を向けないで。</span>
+        <span class="en">SHE CAN FEEL THE LIGHT</span>
+        <div class="timer"><i></i></div>
+      </div>
+
+      <div id="shadow-trap" class="hidden">
+        <span class="jp">笑い声。</span>
+        <span class="en">STAND STILL</span>
+        <div class="trap-bar"><i></i></div>
+      </div>
+
+      <div id="freeze-alert" class="hidden">
+        <span class="jp">動かないで。</span>
+        <span class="en">DO NOT MOVE</span>
+        <div class="freeze-bar"><i></i></div>
+      </div>
+
+      <div id="prompt" class="hidden"><b class="key">E</b><span class="txt">調べる</span></div>
+
+      <div id="protocol-hud" class="hidden">
+        <div class="proto-title">COMPLIANCE PROTOCOLS <span class="jp">／ 対処法</span></div>
+        <div class="proto-row" data-proto="1"><b>1</b><span>Blanket containment<em>毛布を掛ける</em></span></div>
+        <div class="proto-row" data-proto="2"><b>2</b><span>Shadow tag — freeze on the giggle<em>影踏み</em></span></div>
+        <div class="proto-row" data-proto="3"><b>3</b><span>Grab her hand<em>手を握る</em></span></div>
+      </div>
+
+      <div id="controls-hint">
+        <span><b>WASD</b> 歩く</span>
+        <span><b>MOUSE</b> 見る</span>
+        <span><b>F</b> 懐中電灯</span>
+        <span><b>E</b> 使う</span>
+        <span><b>Q</b> 差し出す</span>
+      </div>
+
+      <div id="location-tag" class="mono">月光荘 路地 — 23:47</div>
+    </div>
+
+    <!-- ============ MOBILE TOUCH CONTROLS (mobile only) ============
+         Hidden by CSS unless body carries .mobile, so the desktop build
+         never sees a single pixel of it. -->
+    <div id="mobile-ui" aria-hidden="true">
+      <!-- left quadrant: the virtual stick -->
+      <div id="joy-zone">
+        <div id="joy-base"><i id="joy-knob"></i></div>
+      </div>
+
+      <!-- right half: an invisible look pad (no chrome at all) -->
+      <div id="look-pad"></div>
+
+      <!-- right quadrant: interaction cluster -->
+      <div id="m-actions">
+        <button id="m-proto1" class="m-pill" type="button">毛布<b>1</b></button>
+        <button id="m-proto2" class="m-pill" type="button">影踏み<b>2</b></button>
+        <button id="m-torch" class="m-pill" type="button">F<em>torch</em></button>
+        <button id="m-interact" class="m-round" type="button">
+          <span>INTERACT</span><b>E</b>
+        </button>
+      </div>
+
+      <!-- the Y / N answer, only while she is asking -->
+      <div id="m-choices">
+        <button id="m-yes" class="m-answer" type="button">はい<b>YES</b></button>
+        <button id="m-no" class="m-answer no" type="button">いいえ<b>NO</b></button>
+      </div>
+    </div>
+
+
+    <!-- ===================== SUBTITLES ===================== -->
+    <div id="subtitle" class="hidden" role="status" aria-live="polite">
+      <div class="speaker"><span class="jp">迷子ちゃん</span><span class="en">MAIGO-CHAN</span><i class="dots"><b></b><b></b><b></b></i></div>
+      <p class="jp" id="subtitle-jp"></p>
+      <p class="en" id="subtitle-en"></p>
+    </div>
+
+    <div id="dialogue-choices" class="hidden">
+      <button class="choice-btn yes" data-answer="yes" data-key="Y">
+        <span class="jp">はい ― 家まで送ります。</span>
+        <span class="en">Yes. I'll take you home.</span>
+      </button>
+      <button class="choice-btn no" data-answer="no" data-key="N">
+        <span class="jp">いいえ ― 関わらない。</span>
+        <span class="en">No. I'm not getting involved.</span>
+      </button>
+      <div class="choice-note">Y / N でも選べます — keyboard enabled</div>
+    </div>
+
+    <!-- ===================== CINEMATIC SELECTION BOARD ===================== -->
+    <!-- ============ KEY LEGEND (5 s after she appears) ============ -->
+    <div id="key-legend" class="hidden" aria-hidden="true">
+      <div class="kl-col kl-left">
+        <div class="kl-row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>歩く / WALK</span></div>
+        <div class="kl-row"><kbd>MOUSE</kbd><span>見る / LOOK</span></div>
+        <div class="kl-row"><kbd>F</kbd><span>懐中電灯 / TORCH</span></div>
+      </div>
+      <div class="kl-col kl-right">
+        <div class="kl-row"><kbd>E</kbd><span>調べる / INTERACT</span></div>
+        <div class="kl-row"><kbd>Q</kbd><span>飴を差し出す / OFFER CANDY</span></div>
+        <div class="kl-row"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><span>心理プロトコル / PROTOCOLS</span></div>
+      </div>
+    </div>
+
+    <!-- the same legend, in the language of a phone -->
+    <div id="key-legend-m" class="hidden" aria-hidden="true">
+      <div class="kl-col kl-left">
+        <div class="kl-row"><kbd>◐</kbd><span>左スティック / MOVE</span></div>
+        <div class="kl-row"><kbd>⇄</kbd><span>右スワイプ / LOOK</span></div>
+      </div>
+      <div class="kl-col kl-right">
+        <div class="kl-row"><kbd>E</kbd><span>使う / INTERACT</span></div>
+        <div class="kl-row"><kbd>F</kbd><span>懐中電灯 / TORCH</span></div>
+      </div>
+    </div>
+
+    <!-- ============ INTRO CARD (also the loading window) ============ -->
+    <div id="intro-card" class="hidden" aria-live="polite">
+      <div class="ic-inner">
+        <p class="ic-line ic-kicker">— 帰り道 —</p>
+
+        <p class="ic-line ic-jp">あなたは、学校か会社からの帰り道にいる。</p>
+        <p class="ic-line ic-en">You are walking home from school&nbsp;/&nbsp;office.</p>
+
+        <p class="ic-line ic-jp">あたりは暗い。<br>路地の奥は、もっと暗い。</p>
+        <p class="ic-line ic-en">It is dark. The end of the alley is darker.</p>
+
+        <p class="ic-line ic-jp">迷子の子どもを見かけたら、<br>決して目を離さないでください。</p>
+        <p class="ic-line ic-en">If you find a lost child,<br>never take your eyes off her.</p>
+      </div>
+      <div class="ic-skip"><b>SKIP</b><span>CLICK ANYWHERE</span></div>
+    </div>
+
+    <!-- in-world identity selection: a HUD label that reads what you are
+         standing in front of, on the board itself — no second window -->
+    <div id="board-overlay" class="hidden look-prompt">
+      <div class="look-card">
+        <span class="look-eyebrow">行方不明者 / MISSING</span>
+        <div class="look-name"><b id="look-name-jp">高橋 美咲</b><span id="look-name-en">(17) · High School Student</span></div>
+        <div class="look-traits" id="look-traits">Last seen: <b>22:40</b> · 女子高生 · <em>Ability: Candy pacifies Maigo.</em></div>
+        <div class="look-act"><kbd>CLICK</kbd> or <kbd>E</kbd> — become this person<span class="look-jp">この人物として探索する</span></div>
+      </div>
+      <div class="look-arrows"><span>◀</span><span>A / D</span><span>▶</span></div>
+    </div>
+
+
+    <!-- ===================== LOCK / LOADING / WARNING ===================== -->
+    <div id="boot">
+      <div class="boot-vignette"></div>
+      <div class="boot-inner">
+        <div class="boot-mark"><span>迷子</span><i></i></div>
+        <h1 class="title-jp">迷子ちゃん</h1>
+        <h2 class="title-en">MAIGO-CHAN</h2>
+        <p class="tagline">There is a child at the end of the alley.<br><span>路地の奥に、子どもがいる。</span></p>
+        <div class="boot-warn">
+          <span>⚠</span> HEADPHONES RECOMMENDED. CONTAINS FLASHING IMAGES AND SUDDEN LOUD AUDIO.<br>
+          WebGL&nbsp;2 · Mouse + Keyboard
+        </div>
+        <button id="enter-btn" disabled><span class="ring"></span><b>ENTER THE ALLEY</b><em>路地へ入る</em></button>
+        <div id="load-status" class="mono">GENERATING WET ASPHALT…</div>
+      </div>
+      <div class="boot-stamp mono">EMBEDDED BUILD · NO CDN DEPENDENCIES</div>
+    </div>
+
+    <div id="pause" class="hidden">
+      <div class="pause-card">
+        <h2>一時停止 <span>/ PAUSED</span></h2>
+        <p>Pointer released. Click to return to the alley.</p>
+        <button id="resume-btn">RESUME</button>
+      </div>
+    </div>
+
+    <!-- ===================== JUMPSCARE / GAME OVER ===================== -->
+    <div id="jumpscare" aria-hidden="true">
+      <div class="js-img-wrap"><img id="jumpscare-img" alt="" draggable="false" /></div>
+      <div class="js-red"></div>
+      <div class="js-blood"></div>
+      <div class="js-grain"></div>
+      <div class="js-scan"></div>
+      <div class="js-impact"></div>
+    </div>
+
+    <div id="gameover" class="hidden">
+      <div class="go-inner">
+        <div class="go-kicker mono"></div>
+        <h1 class="go-title" data-text="GAME OVER">GAME OVER</h1>
+        <div class="go-jp">ゲームオーバー</div>
+        <p class="go-reason">SHE FOUND YOU.</p>
+        <div class="go-rule"></div>
+        <p class="go-tip"></p>
+        <button id="retry-btn">RETRY<br><span>最初からやり直す</span></button>
+        <div class="go-foot mono">迷子ちゃん — もう帰れない。</div>
+      </div>
+    </div>
+
+    <!-- ===================== ENDING ===================== -->
+    <div id="ending" class="hidden">
+      <div class="end-inner">
+        <div class="end-kicker mono">ENDING 01 — 帰路 / THE WAY HOME</div>
+        <h1 class="end-title">お家、着いた。</h1>
+        <h2 class="end-title-en">YOU BROUGHT HER HOME.</h2>
+        <p class="end-body"></p>
+        <div class="end-rule"></div>
+        <p class="end-quote">“ありがとう、おじさん／おねえさん。<br>また、迷ったら来てね。”</p>
+        <button id="again-btn">WALK THE ALLEY AGAIN<br><span>もう一度、路地へ</span></button>
+        <div class="end-foot mono">MAIGO-CHAN · THANK YOU FOR PLAYING</div>
+      </div>
+    </div>
+
+    <!-- ===================== MODAL TOASTS ===================== -->
+    <div id="flash"></div>
+    <div id="toast" class="hidden"></div>
+    <div id="victory-wash" class="hidden"></div>
+    <div id="chapter-card" class="hidden">
+      <div class="cc-line"></div>
+      <h2 class="cc-jp"></h2>
+      <p class="cc-en"></p>
+    </div>
+
+  </div>
+</div>
+
+<noscript><div style="position:fixed;inset:0;background:#05060a;color:#cfd6e6;display:grid;place-items:center;font-family:monospace">This experience requires JavaScript and WebGL.</div></noscript>
+<script type="module" src="./js/main.js?v=b18"
+        onerror="window.__maigoFail('the game module was blocked — run ./serve.sh and open the served URL')"></script>
+</body>
+</html>

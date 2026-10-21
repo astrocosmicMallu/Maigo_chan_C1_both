@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./js/vendor/three.module.js","three/addons/":"./js/vendor/addons/","three-vrm":"./js/vendor/three-vrm.module.js"}}</script>
+<style>html,body{margin:0;height:100%;background:#20232a}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from 'three-vrm';
+const r=new THREE.WebGLRenderer({antialias:true});
+r.setSize(900,760); r.toneMapping=THREE.ACESFilmicToneMapping; r.toneMappingExposure=1.0;
+r.outputColorSpace=THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+const s=new THREE.Scene(); s.background=new THREE.Color(0x20232a);
+const cam=new THREE.PerspectiveCamera(30,900/760,0.05,50);
+const key=new THREE.DirectionalLight(0xffffff,2.2); key.position.set(-1.4,2.6,2.2); s.add(key);
+const fill=new THREE.DirectionalLight(0xd6dcea,0.8); fill.position.set(2.4,1.2,1.6); s.add(fill);
+s.add(new THREE.HemisphereLight(0xffffff,0x333333,1.0));
+const loader=new GLTFLoader();
+loader.register((p)=>new VRMLoaderPlugin(p));
+loader.load('./assets/maigo.vrm', (g)=>{
+  const vrm=g.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(g.scene);
+  VRMUtils.combineSkeletons(g.scene);
+  s.add(vrm.scene);
+  // bones are the truth for size, not the bind-pose bbox
+  const head=vrm.humanoid.getNormalizedBoneNode('head');
+  const hips=vrm.humanoid.getNormalizedBoneNode('hips');
+  vrm.scene.updateMatrixWorld(true);
+  const hp=new THREE.Vector3(), hd=new THREE.Vector3();
+  hips.getWorldPosition(hp); head.getWorldPosition(hd);
+  window.__info={hips:hp.toArray().map(v=>+v.toFixed(2)), head:hd.toArray().map(v=>+v.toFixed(2)), height:+(hd.y-hp.y+0.55).toFixed(2)};
+  cam.position.set(0, 1.05, 3.1); cam.lookAt(0, 0.95, 0);
+  window.__vrm=vrm; window.__ready=true;
+  const clock=new THREE.Clock();
+  (function loop(){requestAnimationFrame(loop); const d=clock.getDelta(); vrm.update(d); r.render(s,cam);})();
+}, undefined, (e)=>{ window.__err=String(e); });
+</script></body></html>
