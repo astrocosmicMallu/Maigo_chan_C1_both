@@ -1,2 +1,3 @@
-# Maigo_chan_Both
-Maigo-chan: The International Wandering Child is a 3D first-person psychological horror WebGL game BY DEEJU
+Maigo-chan: The International Wandering Child is a high-concept, 3D psychological horror web game prototype built entirely in WebGL via Three.js. Stepping into a dark-indigo atmospheric street loop, players must survive an unsettling encounter with a lost 12-year-old girl. Built with a modular multi-file architecture, the game features a cinematic first-person human eyesight perspective, procedural rain-slicked asphalt rendering, custom GLSL post-processing pipelines, and fully automatic PC/Mobile hybrid touch control detection. Survive a gauntlet of audio-driven movement penalties, hidden raycast mechanics, and strict behavioral compliance loops—or face a terrifying, maximum-volume sensory jumpscare payload.
+
+Made by DEEJU MANU P
