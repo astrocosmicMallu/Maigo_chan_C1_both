@@ -1,0 +1,28 @@
+Audio in this folder is vendored from "piano_tune and screaming"
+https://archive.org/details/piano_tune
+released under CC0 1.0 Universal (public domain dedication).
+No attribution is required; it is recorded here for provenance only.
+
+  piano_intro.mp3  — the piano tune, looped under the black intro card.
+                     Trimmed copy of piano_tune.mp3: high-passed at 32 Hz,
+                     normalised to -20 LUFS, 96 kbps stereo.
+  scream_slam.mp3  — the scream, used as the voice of the jumpscare.
+                     First scream of screaming.mp3 (0.28–2.52 s), pitched
+                     down ~7%, compressed and faded, 128 kbps stereo.
+
+--------------------------------------------------------------------
+Sound effects vendored from "sound_effects"
+https://archive.org/details/sound_effects_new
+released under CC0 1.0 Universal (public domain dedication).
+No attribution required; recorded here for provenance only.
+
+  puddle_footsteps1.mp3        — wet footstep pool, used as a random-source
+                                 slice under the player's boots in a puddle.
+  puddle_footsteps2.mp3        — second wet pool, alternated so repeats are
+                                 not audible.
+  Heavy_breathing1_Student.mp3 — stationary breathing bed, Student class.
+  Heavy_breathing2_Adult.mp3   — stationary breathing bed, Adult class.
+
+They are used as sources, not as whole tracks: the game plays a short
+random slice (footsteps) or a seamless loop (breathing), so the files are
+left byte-identical to the archive originals.
